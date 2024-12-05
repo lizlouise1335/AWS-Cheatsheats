@@ -329,3 +329,75 @@ aws ec2 delete-network-interface --network-interface-id <eni_id>
 | **Scalability**   | Pre-defined size, resizable      | Not applicable        | Automatically scalable           |
 
 **Tip:** Know EBS volume types, AMI lifecycle, and EFS use cases for the exam!
+
+### **EBS Volume Types**:
+1. **General Purpose SSD (gp3, gp2)**: Cost-effective, good for most workloads.
+2. **Provisioned IOPS SSD (io1, io2)**: High-performance for I/O-intensive workloads.
+3. **Throughput Optimized HDD (st1)**: High throughput for big data and streaming.
+4. **Cold HDD (sc1)**: Low-cost for infrequent access.
+
+### **EBS Volume Types Comparison Chart**
+
+| **Volume Type**              | **Use Case**                                 | **IOPS**                                    | **Throughput**                     | **Cost**         | **Boot Volume Support** | **Key Features** |
+|-------------------------------|----------------------------------------------|---------------------------------------------|-------------------------------------|------------------|--------------------------|-------------------|
+| **gp3 (General Purpose SSD)**| Balanced performance, cost-efficient         | Baseline 3,000, configurable up to 16,000   | Baseline 125 MiB/s, up to 1,000 MiB/s | Moderate         | Yes                      | Independently provision IOPS and throughput |
+| **gp2 (General Purpose SSD)**| General workloads with moderate performance  | 3 IOPS/GB (burst up to 3,000 IOPS for <1 TiB), max 16,000 | Up to 250 MiB/s                   | Moderate         | Yes                      | Performance scales with volume size |
+| **io1 (Provisioned IOPS SSD)**| I/O-intensive workloads with low latency     | Provisioned up to 64,000                   | Up to 1,000 MiB/s                   | High             | Yes                      | Predictable, high IOPS for databases |
+| **io2 (Provisioned IOPS SSD)**| High durability and I/O-intensive workloads  | Provisioned up to 64,000 (256,000 with io2 Block Express) | Up to 1,000 MiB/s (4,000 MiB/s with Block Express) | High             | Yes                      | 99.999% durability, great for critical apps |
+| **st1 (Throughput Optimized HDD)**| Big data, log processing, data warehouses | Up to ~500 IOPS                            | Up to 500 MiB/s                     | Low              | No                       | High sequential throughput |
+| **sc1 (Cold HDD)**            | Infrequently accessed data                  | Up to ~250 IOPS                            | Up to 250 MiB/s                     | Very Low         | No                       | Lowest cost per GB for cold storage |
+---
+
+### **Comparison: io1 vs io2 Block Express vs Instance Store**
+
+| Feature                  | **io1**                            | **io2 Block Express**                   | **Instance Store**                  |
+|--------------------------|-------------------------------------|-----------------------------------------|-------------------------------------|
+| **Max IOPS per Volume**  | 64,000                             | 256,000                                | Millions                           |
+| **Max Throughput**       | 1,000 MiB/s                        | 4,000 MiB/s                            | Extremely high (direct hardware access) |
+| **Durability**           | 99.9%                              | 99.999%                                | Ephemeral (data lost on stop/terminate) |
+| **Performance Scaling**  | Limited                            | Scales linearly with multiple volumes. | Direct, no scaling needed          |
+| **Cost Efficiency**      | Higher cost per IOPS/durability    | Better IOPS and durability for the cost. | Cost included in instance pricing |
+| **Use Case**             | I/O-intensive workloads with high durability | Critical workloads needing high durability and scalability | Ultra-high-performance, ephemeral workloads |
+
+
+### **Key Notes**:
+- **Performance Dependency:** Max IOPS and throughput often require **Nitro-based EC2 instances**.
+- **Boot Volume Support:** Only **gp2**, **gp3**, **io1**, and **io2** can be used as boot volumes.
+- **Durability:** **io2** provides the highest durability at **99.999%**.
+- **Scaling Differences:** 
+  - **gp2**: IOPS increases with volume size.
+  - **gp3**: IOPS and throughput are provisioned independently of size.
+- **Cost Optimization:** Use **gp3** for most workloads, **io2** for critical I/O workloads, and **HDD volumes** (st1/sc1) for cost-sensitive archival or streaming needs.
+
+**Note**: HDD volumes (**st1**, **sc1**) **cannot** be used as boot volumes because they do not support the required low-latency random I/O operations.
+
+## **EBS Multi-Attach:** ### 
+Allows a single **io1** or **io2** EBS volume to be attached to multiple EC2 instances simultaneously within the same Availability Zone. 
+
+### Key Points:
+- **Use Case**: Enables shared data access for clustered or distributed applications.
+- **Limitations**: 
+  - Supported only for **io1** and **io2** volumes.
+  - Applications must handle concurrent write/reads to avoid data corruption.
+- **Maximum Attachments**: Up to 16 EC2 instances per volume.
+
+## Steps to encrypt an **unencrypted EBS volume** attached to your EC2 instance:
+
+1. **Create a Snapshot**:
+   - Take a snapshot of the unencrypted volume (this snapshot will also be unencrypted).
+
+2. **Copy the Snapshot with Encryption**:
+   - Copy the unencrypted snapshot and enable encryption during the copy process.
+   - Specify a KMS key for encryption (default or custom).
+
+3. **Create an Encrypted Volume**:
+   - Create a new EBS volume from the encrypted snapshot.
+
+4. **Attach the Encrypted Volume**:
+   - Detach the original unencrypted volume from the EC2 instance.
+   - Attach the new encrypted volume to the instance.
+
+5. **Update Mount Points**:
+   - Ensure the new volume is mounted to the same location as the original volume in the instance.
+
+This method ensures no downtime and secures your data on the volume.
